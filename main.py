@@ -13,3 +13,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+# This script is the entry point for the logo matching CNN application.
+# It takes a URL as a command line argument and processes it to extract logos.
+# The `extract_logos` function is called to handle the logo extraction logic.

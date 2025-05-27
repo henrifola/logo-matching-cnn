@@ -1,5 +1,3 @@
-# scraping/fetch_page.py
-
 import requests
 
 def get_page_html(url):

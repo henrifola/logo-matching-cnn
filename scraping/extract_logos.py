@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 from pathlib import Path
 import hashlib
+from scraping.utils import get_image_hash, is_duplicate
 
 SCRAPE_DIR = Path("scraping/scraped-logos")
 
@@ -28,7 +29,7 @@ def extract_logo_images(html, base_url, max_results=5):
     soup = BeautifulSoup(html, "html.parser")
     logo_candidates = []
 
-    # --- IMG TAGS ---
+
     img_tags = soup.find_all("img")
     for i, img in enumerate(img_tags):
         score = 0
@@ -60,7 +61,7 @@ def extract_logo_images(html, base_url, max_results=5):
 
             logo_candidates.append(("img", full_img_url, score))
 
-    # --- INLINE SVG TAGS ---
+
     svg_tags = soup.find_all("svg")
     for i, svg in enumerate(svg_tags):
         score = 0
@@ -93,10 +94,18 @@ def save_logos(logos, base_url):
     folder = SCRAPE_DIR / domain
     folder.mkdir(parents=True, exist_ok=True)
 
+    seen_hashes = set()
+
     for i, (tag_type, content, _) in enumerate(logos):
         if tag_type == "img":
             try:
                 img_data = requests.get(content).content
+                img_hash = get_image_hash(img_data)
+                if is_duplicate(img_hash, seen_hashes):
+                    print(f"[SKIP] Duplicate IMG (hash: {img_hash})")
+                    continue
+                seen_hashes.add(img_hash)
+
                 ext = Path(urlparse(content).path).suffix or ".img"
                 name = f"logo_{i}{ext}"
                 with open(folder / name, "wb") as f:
@@ -104,8 +113,15 @@ def save_logos(logos, base_url):
                     print(f"[SAVE] Saved IMG: {folder / name}")
             except Exception as e:
                 print(f"[ERROR] Could not save image from {content}: {e}")
+
         elif tag_type == "svg":
             try:
+                svg_hash = get_image_hash(content.encode("utf-8"))
+                if is_duplicate(svg_hash, seen_hashes):
+                    print(f"[SKIP] Duplicate SVG (hash: {svg_hash})")
+                    continue
+                seen_hashes.add(svg_hash)
+
                 name = f"logo_{i}.svg"
                 with open(folder / name, "w", encoding="utf-8") as f:
                     f.write(content)
